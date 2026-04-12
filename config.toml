@@ -1,0 +1,32 @@
+# AI Personal Coach — Configuration
+# Safe defaults. Edit as needed. Do NOT put secrets here — use .env instead.
+
+[coach]
+data_dir = "data"
+log_dir = "logs"
+
+# Day that triggers a WeeklyCard (lowercase full name)
+week_end_day = "sunday"
+
+# Time for the proactive morning job (24h format, local time)
+morning_run_time = "08:00"
+
+# Time for the evening nudge if no check-in was recorded (24h format, local time)
+evening_nudge_time = "20:00"
+
+# Number of consecutive sessions in a domain to trigger a MilestoneCard
+milestone_streak_threshold = 5
+
+# Maximum number of actions in a DailyCard (spec: 2–3)
+max_daily_actions = 3
+
+# How many past CheckIns to pass to the LLM as context
+history_window_days = 7
+
+[tools]
+# Set each to true to activate the integration.
+# Credentials for active integrations must be set in .env
+enable_calendar = false
+enable_todoist  = false
+enable_telegram = false
+enable_lichess  = false

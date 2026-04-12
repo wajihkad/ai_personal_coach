@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-personal-coach"
+version = "0.1.0"
+description = "An agentic AI life coach that reasons across learning domains and produces structured progress cards"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=0.25.0",
+    "click>=8.1.0",
+    "httpx>=0.27.0",
+    "tomllib>=2.0.0; python_version < '3.11'",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+tools = [
+    "google-api-python-client>=2.0.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-auth-oauthlib>=1.0.0",
+    "todoist-api-python>=2.0.0",
+    "python-telegram-bot>=21.0.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+coach = "coach.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["coach"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

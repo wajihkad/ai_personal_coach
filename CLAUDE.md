@@ -101,7 +101,7 @@ Do not create files outside this layout without a good reason. If you add a new 
 
 ## LLM & Prompts (`coach/prompts.py`)
 
-- Use the `anthropic` Python SDK. No other LLM client library.
+- Use the `openai` Python SDK. No other LLM client library.
 - Use Claude's tool-use feature to produce structured card output. Do not parse free-form text.
 - Define one tool schema per card type (`daily_card_tool`, `weekly_card_tool`, `milestone_card_tool`).
 - Apply prompt caching (`"cache_control": {"type": "ephemeral"}`) to the static parts of every request: the system prompt and the ProfileCard block. Do not cache the user's check-in message.

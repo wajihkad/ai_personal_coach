@@ -37,7 +37,7 @@ Without a key the coach runs in **dummy mode** — it returns plausible fake car
 ```bash
 cp .env.example .env
 # then open .env and set:
-# ANTHROPIC_API_KEY=your-key-here
+# OPENAI_API_KEY=your-key-here
 ```
 
 ### 3. Edit your profile
@@ -103,7 +103,7 @@ Type what you did today, how it felt, any struggles. Press Enter twice to submit
 
 ## Dummy mode
 
-If `ANTHROPIC_API_KEY` is not set, the coach uses a built-in dummy client that returns realistic fake cards. All dummy output is labelled `[DUMMY]` so you can tell it apart from real responses.
+If `OPENAI_API_KEY` is not set, the coach uses a built-in dummy client that returns realistic fake cards. All dummy output is labelled `[DUMMY]` so you can tell it apart from real responses.
 
 This is useful for:
 - Trying out the interface before getting an API key

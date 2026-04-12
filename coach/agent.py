@@ -7,7 +7,9 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Union
 
-import anthropic
+import json
+
+import openai
 
 from coach.config import settings
 from coach.dummy import DummyClient
@@ -97,7 +99,7 @@ def run(
     user_text: str,
     profile: ProfileCard,
     checkins: list[CheckIn],
-    client: Optional[anthropic.Anthropic] = None,
+    client: Optional[openai.OpenAI] = None,
     now: Optional[datetime] = None,
 ) -> Card:
     """
@@ -111,16 +113,16 @@ def run(
         The user's current profile.
     checkins : list[CheckIn]
         Recent check-ins (newest first), up to history_window_days.
-    client : anthropic.Anthropic, optional
-        LLM client. Defaults to a real Anthropic client. Inject a stub for tests.
+    client : openai.OpenAI, optional
+        LLM client. Defaults to a real OpenAI client. Inject a stub for tests.
     now : datetime, optional
         Current time. Defaults to datetime.now(). Override in tests.
     """
     if client is None:
-        if settings.anthropic_api_key:
-            client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        if settings.openai_api_key:
+            client = openai.OpenAI(api_key=settings.openai_api_key)
         else:
-            logger.warning("ANTHROPIC_API_KEY not set — using dummy client. Output is fake.")
+            logger.warning("OPENAI_API_KEY not set — using dummy client. Output is fake.")
             client = DummyClient()
     if now is None:
         now = datetime.now()
@@ -131,6 +133,7 @@ def run(
         "weekly": WEEKLY_CARD_TOOL,
         "milestone": MILESTONE_CARD_TOOL,
     }[card_type]
+    tool_name = tool["function"]["name"]
 
     user_message = build_user_message(profile, checkins, user_text)
 
@@ -138,22 +141,17 @@ def run(
     last_error: Optional[Exception] = None
     for attempt in range(3):
         try:
-            response = client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=1024,
-                system=[
-                    {
-                        "type": "text",
-                        "text": SYSTEM_PROMPT,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
+            response = client.chat.completions.create(
+                model="gpt-4o",
                 tools=[tool],
-                tool_choice={"type": "tool", "name": tool["name"]},
-                messages=[{"role": "user", "content": user_message}],
+                tool_choice={"type": "function", "function": {"name": tool_name}},
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": user_message},
+                ],
             )
             break
-        except anthropic.APIError as e:
+        except openai.APIError as e:
             last_error = e
             wait = 2**attempt
             logger.warning("API call failed (attempt %d/3), retrying in %ds: %s", attempt + 1, wait, e)
@@ -162,8 +160,8 @@ def run(
     else:
         raise RuntimeError(f"LLM API call failed after 3 attempts: {last_error}") from last_error
 
-    tool_use = next(b for b in response.content if b.type == "tool_use")
-    tool_input = tool_use.input
+    tool_call = response.choices[0].message.tool_calls[0]
+    tool_input = json.loads(tool_call.function.arguments)
 
     if card_type == "daily":
         card: Card = _build_daily_card(now, tool_input)

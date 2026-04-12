@@ -3,7 +3,10 @@ from __future__ import annotations
 # All system prompts and LLM tool schemas live here.
 # No f-string prompts in other modules — build them here and import.
 
-from coach.models import CheckIn, ProfileCard
+from coach.models import CheckIn, Domain, ProfileCard
+
+# Derived from the Domain enum — add a new domain there and it propagates here automatically.
+_DOMAIN_VALUES = [d.value for d in Domain]
 
 
 SYSTEM_PROMPT = """\
@@ -58,88 +61,97 @@ def build_user_message(profile: ProfileCard, checkins: list[CheckIn], user_text:
 # ---------------------------------------------------------------------------
 
 DAILY_CARD_TOOL = {
-    "name": "daily_card",
-    "description": "Produce a DailyCard with 2–3 prioritised actions and a personalised motivation note.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "actions": {
-                "type": "array",
-                "minItems": 2,
-                "maxItems": 3,
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "domain": {"type": "string", "enum": ["guitar", "chess", "coding"]},
-                        "description": {"type": "string"},
-                        "duration_minutes": {"type": "integer", "minimum": 5},
+    "type": "function",
+    "function": {
+        "name": "daily_card",
+        "description": "Produce a DailyCard with 2–3 prioritised actions and a personalised motivation note.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 3,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "domain": {"type": "string", "enum": _DOMAIN_VALUES},
+                            "description": {"type": "string"},
+                            "duration_minutes": {"type": "integer", "minimum": 5},
+                        },
+                        "required": ["domain", "description", "duration_minutes"],
                     },
-                    "required": ["domain", "description", "duration_minutes"],
+                },
+                "motivation_note": {
+                    "type": "string",
+                    "description": "A short, specific motivational note referencing the user's recent history.",
                 },
             },
-            "motivation_note": {
-                "type": "string",
-                "description": "A short, specific motivational note referencing the user's recent history.",
-            },
+            "required": ["actions", "motivation_note"],
         },
-        "required": ["actions", "motivation_note"],
     },
 }
 
 WEEKLY_CARD_TOOL = {
-    "name": "weekly_card",
-    "description": "Produce a WeeklyCard summarising the week and setting focus for next week.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "domain_summaries": {
-                "type": "object",
-                "description": "Narrative summary per domain (domain value as key).",
-                "additionalProperties": {"type": "string"},
-            },
-            "completion_rate": {
-                "type": "object",
-                "description": "Completion rate 0.0–1.0 per domain (domain value as key).",
-                "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1},
-            },
-            "highlight": {
-                "type": "string",
-                "description": "The single most notable positive event of the week.",
-            },
-            "next_week_focus": {
-                "type": "array",
-                "maxItems": 3,
-                "items": {
+    "type": "function",
+    "function": {
+        "name": "weekly_card",
+        "description": "Produce a WeeklyCard summarising the week and setting focus for next week.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "domain_summaries": {
                     "type": "object",
-                    "properties": {
-                        "domain": {"type": "string", "enum": ["guitar", "chess", "coding"]},
-                        "description": {"type": "string"},
-                        "duration_minutes": {"type": "integer", "minimum": 5},
+                    "description": "Narrative summary per domain (domain value as key).",
+                    "additionalProperties": {"type": "string"},
+                },
+                "completion_rate": {
+                    "type": "object",
+                    "description": "Completion rate 0.0–1.0 per domain (domain value as key).",
+                    "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1},
+                },
+                "highlight": {
+                    "type": "string",
+                    "description": "The single most notable positive event of the week.",
+                },
+                "next_week_focus": {
+                    "type": "array",
+                    "maxItems": 3,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "domain": {"type": "string", "enum": _DOMAIN_VALUES},
+                            "description": {"type": "string"},
+                            "duration_minutes": {"type": "integer", "minimum": 5},
+                        },
+                        "required": ["domain", "description", "duration_minutes"],
                     },
-                    "required": ["domain", "description", "duration_minutes"],
                 },
             },
+            "required": ["domain_summaries", "completion_rate", "highlight", "next_week_focus"],
         },
-        "required": ["domain_summaries", "completion_rate", "highlight", "next_week_focus"],
     },
 }
 
 MILESTONE_CARD_TOOL = {
-    "name": "milestone_card",
-    "description": "Produce a MilestoneCard celebrating a user achievement and setting the next challenge.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "domain": {"type": "string", "enum": ["guitar", "chess", "coding"]},
-            "achievement": {
-                "type": "string",
-                "description": "Concrete description of what the user achieved.",
+    "type": "function",
+    "function": {
+        "name": "milestone_card",
+        "description": "Produce a MilestoneCard celebrating a user achievement and setting the next challenge.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "domain": {"type": "string", "enum": _DOMAIN_VALUES},
+                "achievement": {
+                    "type": "string",
+                    "description": "Concrete description of what the user achieved.",
+                },
+                "next_challenge": {
+                    "type": "string",
+                    "description": "Specific, domain-appropriate next challenge to aim for.",
+                },
             },
-            "next_challenge": {
-                "type": "string",
-                "description": "Specific, domain-appropriate next challenge to aim for.",
-            },
+            "required": ["domain", "achievement", "next_challenge"],
         },
-        "required": ["domain", "achievement", "next_challenge"],
     },
 }

@@ -39,7 +39,7 @@ class Settings:
     enable_lichess: bool
 
     # Secrets (from .env)
-    anthropic_api_key: str
+    openai_api_key: str
 
 
 def _load() -> Settings:
@@ -49,7 +49,7 @@ def _load() -> Settings:
     coach = raw["coach"]
     tools = raw["tools"]
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    api_key = os.environ.get("OPENAI_API_KEY", "")
     # Empty key is allowed — agent.py will fall back to the dummy client.
 
     return Settings(
@@ -65,7 +65,7 @@ def _load() -> Settings:
         enable_todoist=bool(tools["enable_todoist"]),
         enable_telegram=bool(tools["enable_telegram"]),
         enable_lichess=bool(tools["enable_lichess"]),
-        anthropic_api_key=api_key,
+        openai_api_key=api_key,
     )
 
 

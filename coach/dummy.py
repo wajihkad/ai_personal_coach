@@ -1,34 +1,43 @@
 from __future__ import annotations
 
-# Dummy LLM client — used automatically when ANTHROPIC_API_KEY is not set.
+# Dummy LLM client — used automatically when OPENAI_API_KEY is not set.
 # Returns plausible hardcoded responses so the full loop can be exercised
 # without a real API key.
 
+import json
 import random
 from types import SimpleNamespace
-from coach.models import ProfileCard, CheckIn
 
 
 class DummyClient:
-    """Mimics the anthropic.Anthropic client interface, returns fake tool-use blocks."""
+    """Mimics the openai.OpenAI client interface, returns fake tool-call responses."""
 
     def __init__(self) -> None:
-        self.messages = _DummyMessages()
+        self.chat = _DummyChat()
 
 
-class _DummyMessages:
+class _DummyChat:
+    def __init__(self) -> None:
+        self.completions = _DummyCompletions()
+
+
+class _DummyCompletions:
     def create(self, *, tools: list, tool_choice: dict, messages: list, **kwargs) -> object:
-        tool_name = tool_choice["name"]
+        tool_name = tool_choice["function"]["name"]
 
         if tool_name == "daily_card":
-            tool_input = _dummy_daily_input(messages)
+            tool_input = _dummy_daily_input()
         elif tool_name == "weekly_card":
             tool_input = _dummy_weekly_input()
         else:
             tool_input = _dummy_milestone_input()
 
-        tool_use_block = SimpleNamespace(type="tool_use", input=tool_input)
-        return SimpleNamespace(content=[tool_use_block])
+        # Mirror the OpenAI response shape: choices[0].message.tool_calls[0].function
+        function = SimpleNamespace(name=tool_name, arguments=json.dumps(tool_input))
+        tool_call = SimpleNamespace(function=function)
+        message = SimpleNamespace(tool_calls=[tool_call])
+        choice = SimpleNamespace(message=message)
+        return SimpleNamespace(choices=[choice])
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +73,7 @@ _MOTIVATIONS = [
 ]
 
 
-def _dummy_daily_input(messages: list) -> dict:
+def _dummy_daily_input() -> dict:
     actions = [
         {"domain": "guitar", "description": random.choice(_GUITAR_ACTIONS)[0],
          "duration_minutes": random.choice(_GUITAR_ACTIONS)[1]},

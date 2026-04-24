@@ -3,17 +3,14 @@ from __future__ import annotations
 # Dataclasses and enums — the authoritative data contract for this project.
 # Do not add serialization logic here; that belongs in storage.py.
 # Do not define data structures in any other module.
+#
+# Domains are plain strings — users define them freely in profile.json or via
+# the CLI. There is no hardcoded Domain enum.
 
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-
-
-class Domain(Enum):
-    GUITAR = "guitar"
-    CHESS = "chess"
-    CODING = "coding"
 
 
 class Level(Enum):
@@ -31,7 +28,7 @@ class Status(Enum):
 
 @dataclass
 class DomainProfile:
-    domain: Domain
+    domain: str
     level: Level
     goal: str
     hours_per_week: float
@@ -40,7 +37,7 @@ class DomainProfile:
 
 @dataclass
 class Action:
-    domain: Domain
+    domain: str
     description: str
     duration_minutes: int
     status: Status = Status.PENDING
@@ -69,8 +66,8 @@ class DailyCard:
 class WeeklyCard:
     week_start: datetime
     week_end: datetime
-    domain_summaries: dict[Domain, str]
-    completion_rate: dict[Domain, float]
+    domain_summaries: dict[str, str]
+    completion_rate: dict[str, float]
     highlight: str
     next_week_focus: list[Action]
 
@@ -78,7 +75,7 @@ class WeeklyCard:
 @dataclass
 class MilestoneCard:
     date: datetime
-    domain: Domain
+    domain: str
     achievement: str
     next_challenge: str
 

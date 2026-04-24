@@ -17,18 +17,17 @@ from coach.models import (
     Action,
     CheckIn,
     DailyCard,
-    Domain,
     MilestoneCard,
     ProfileCard,
     Status,
     WeeklyCard,
 )
 from coach.prompts import (
-    DAILY_CARD_TOOL,
-    MILESTONE_CARD_TOOL,
     SYSTEM_PROMPT,
-    WEEKLY_CARD_TOOL,
+    build_daily_card_tool,
+    build_milestone_card_tool,
     build_user_message,
+    build_weekly_card_tool,
 )
 from coach import storage
 
@@ -51,7 +50,7 @@ def _select_card_type(now: datetime, checkins: list[CheckIn]) -> str:
 def _build_daily_card(now: datetime, tool_input: dict) -> DailyCard:
     actions = [
         Action(
-            domain=Domain(a["domain"]),
+            domain=a["domain"],
             description=a["description"],
             duration_minutes=a["duration_minutes"],
             status=Status.PENDING,
@@ -71,12 +70,12 @@ def _build_weekly_card(now: datetime, tool_input: dict) -> WeeklyCard:
     return WeeklyCard(
         week_start=week_start,
         week_end=week_end,
-        domain_summaries={Domain(k): v for k, v in tool_input["domain_summaries"].items()},
-        completion_rate={Domain(k): v for k, v in tool_input["completion_rate"].items()},
+        domain_summaries=tool_input["domain_summaries"],
+        completion_rate=tool_input["completion_rate"],
         highlight=tool_input["highlight"],
         next_week_focus=[
             Action(
-                domain=Domain(a["domain"]),
+                domain=a["domain"],
                 description=a["description"],
                 duration_minutes=a["duration_minutes"],
                 status=Status.PENDING,
@@ -89,7 +88,7 @@ def _build_weekly_card(now: datetime, tool_input: dict) -> WeeklyCard:
 def _build_milestone_card(now: datetime, tool_input: dict) -> MilestoneCard:
     return MilestoneCard(
         date=now,
-        domain=Domain(tool_input["domain"]),
+        domain=tool_input["domain"],
         achievement=tool_input["achievement"],
         next_challenge=tool_input["next_challenge"],
     )
@@ -127,11 +126,12 @@ def run(
     if now is None:
         now = datetime.now()
 
+    domain_values = [dp.domain for dp in profile.domains]
     card_type = _select_card_type(now, checkins)
     tool = {
-        "daily": DAILY_CARD_TOOL,
-        "weekly": WEEKLY_CARD_TOOL,
-        "milestone": MILESTONE_CARD_TOOL,
+        "daily": build_daily_card_tool(domain_values),
+        "weekly": build_weekly_card_tool(domain_values),
+        "milestone": build_milestone_card_tool(domain_values),
     }[card_type]
     tool_name = tool["function"]["name"]
 

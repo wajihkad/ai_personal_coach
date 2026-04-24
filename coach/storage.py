@@ -16,7 +16,6 @@ from coach.models import (
     Action,
     CheckIn,
     DailyCard,
-    Domain,
     DomainProfile,
     Level,
     MilestoneCard,
@@ -55,7 +54,7 @@ def _read_json(path: Path) -> Optional[dict | list]:
 
 def _serialize_action(a: Action) -> dict:
     return {
-        "domain": a.domain.value,
+        "domain": a.domain,
         "description": a.description,
         "duration_minutes": a.duration_minutes,
         "status": a.status.value,
@@ -65,7 +64,7 @@ def _serialize_action(a: Action) -> dict:
 
 def _deserialize_action(d: dict) -> Action:
     return Action(
-        domain=Domain(d["domain"]),
+        domain=d["domain"],
         description=d["description"],
         duration_minutes=d["duration_minutes"],
         status=Status(d["status"]),
@@ -86,7 +85,7 @@ def save_profile(profile: ProfileCard) -> None:
         "user_name": profile.user_name,
         "domains": [
             {
-                "domain": dp.domain.value,
+                "domain": dp.domain,
                 "level": dp.level.value,
                 "goal": dp.goal,
                 "hours_per_week": dp.hours_per_week,
@@ -110,7 +109,7 @@ def load_profile() -> Optional[ProfileCard]:
         user_name=data["user_name"],
         domains=[
             DomainProfile(
-                domain=Domain(d["domain"]),
+                domain=d["domain"],
                 level=Level(d["level"]),
                 goal=d["goal"],
                 hours_per_week=d["hours_per_week"],
@@ -216,8 +215,8 @@ def save_weekly_card(card: WeeklyCard) -> None:
     data = {
         "week_start": card.week_start.isoformat(),
         "week_end": card.week_end.isoformat(),
-        "domain_summaries": {k.value: v for k, v in card.domain_summaries.items()},
-        "completion_rate": {k.value: v for k, v in card.completion_rate.items()},
+        "domain_summaries": card.domain_summaries,
+        "completion_rate": card.completion_rate,
         "highlight": card.highlight,
         "next_week_focus": [_serialize_action(a) for a in card.next_week_focus],
     }
@@ -231,8 +230,8 @@ def load_weekly_card(date: datetime) -> Optional[WeeklyCard]:
     return WeeklyCard(
         week_start=datetime.fromisoformat(data["week_start"]),
         week_end=datetime.fromisoformat(data["week_end"]),
-        domain_summaries={Domain(k): v for k, v in data["domain_summaries"].items()},
-        completion_rate={Domain(k): v for k, v in data["completion_rate"].items()},
+        domain_summaries=data["domain_summaries"],
+        completion_rate=data["completion_rate"],
         highlight=data["highlight"],
         next_week_focus=[_deserialize_action(a) for a in data["next_week_focus"]],
     )
@@ -242,32 +241,32 @@ def load_weekly_card(date: datetime) -> Optional[WeeklyCard]:
 # MilestoneCard
 # ---------------------------------------------------------------------------
 
-def _milestone_card_path(date: datetime, domain: Domain) -> Path:
+def _milestone_card_path(date: datetime, domain: str) -> Path:
     return (
         settings.data_dir
         / "cards"
         / "milestone"
-        / f"{date.strftime('%Y-%m-%d')}-{domain.value}.json"
+        / f"{date.strftime('%Y-%m-%d')}-{domain}.json"
     )
 
 
 def save_milestone_card(card: MilestoneCard) -> None:
     data = {
         "date": card.date.isoformat(),
-        "domain": card.domain.value,
+        "domain": card.domain,
         "achievement": card.achievement,
         "next_challenge": card.next_challenge,
     }
     _atomic_write(_milestone_card_path(card.date, card.domain), data)
 
 
-def load_milestone_card(date: datetime, domain: Domain) -> Optional[MilestoneCard]:
+def load_milestone_card(date: datetime, domain: str) -> Optional[MilestoneCard]:
     data = _read_json(_milestone_card_path(date, domain))
     if data is None:
         return None
     return MilestoneCard(
         date=datetime.fromisoformat(data["date"]),
-        domain=Domain(data["domain"]),
+        domain=data["domain"],
         achievement=data["achievement"],
         next_challenge=data["next_challenge"],
     )

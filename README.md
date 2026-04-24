@@ -1,6 +1,6 @@
 # AI Personal Coach
 
-A personal AI life coach that helps you make consistent progress across multiple learning domains — guitar, chess, coding — simultaneously.
+A personal AI life coach that helps you make consistent progress across multiple learning domains simultaneously. You define your own domains — guitar, chess, coding, running, Japanese, anything.
 
 You check in conversationally. The agent reads your history, reasons across all your domains, and produces a structured **card** (daily plan, weekly review, or milestone celebration).
 
@@ -64,7 +64,7 @@ Open `data/profile.json` and fill in your domains, goals, and available days:
 ```
 
 Valid values:
-- `domain` — `"guitar"`, `"chess"`, `"coding"`
+- `domain` — any string you choose: `"guitar"`, `"running"`, `"japanese"`, etc.
 - `level` — `"beginner"`, `"intermediate"`, `"advanced"`
 - `learning_style` — `"hands-on"`, `"theory-first"`, `"mixed"`
 
@@ -86,6 +86,8 @@ Type what you did today, how it felt, any struggles. Press Enter twice to submit
 | `coach today` | Show today's card (generates one if missing) |
 | `coach week` | Show the current weekly review card |
 | `coach profile` | Display your profile |
+| `coach profile add-domain` | Add a new learning domain interactively |
+| `coach profile remove-domain <name>` | Remove a domain by name |
 | `coach history` | Show the last 7 check-ins |
 | `coach history --days 14` | Show the last 14 check-ins |
 

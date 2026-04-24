@@ -1,31 +1,30 @@
 from __future__ import annotations
 
-# Agent loop tests — LLM API is always stubbed. Never calls the real API.
-
+import json
 from datetime import datetime
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from coach import agent
-from coach.models import DailyCard, Domain
+from coach.models import DailyCard
 
 
-def _make_stub_client(tool_name: str, tool_input: dict) -> MagicMock:
-    """Return a fake Anthropic client that returns a tool_use block."""
-    tool_use_block = MagicMock()
-    tool_use_block.type = "tool_use"
-    tool_use_block.input = tool_input
-
+def _make_stub_client(tool_input: dict) -> MagicMock:
+    function = MagicMock()
+    function.arguments = json.dumps(tool_input)
+    tool_call = MagicMock()
+    tool_call.function = function
+    message = MagicMock()
+    message.tool_calls = [tool_call]
+    choice = MagicMock()
+    choice.message = message
     response = MagicMock()
-    response.content = [tool_use_block]
-
+    response.choices = [choice]
     client = MagicMock()
-    client.messages.create.return_value = response
+    client.chat.completions.create.return_value = response
     return client
 
 
-def test_run_returns_daily_card(sample_profile, sample_checkin, tmp_path):
+def test_run_returns_daily_card(sample_profile, sample_checkin):
     stub_input = {
         "actions": [
             {"domain": "guitar", "description": "Practice C major scale", "duration_minutes": 20},
@@ -33,20 +32,18 @@ def test_run_returns_daily_card(sample_profile, sample_checkin, tmp_path):
         ],
         "motivation_note": "You had a great guitar session yesterday — keep the streak going!",
     }
-    stub_client = _make_stub_client("daily_card", stub_input)
+    stub_client = _make_stub_client(stub_input)
 
-    with patch("coach.storage.settings") as mock_settings, \
-         patch("coach.agent.storage.save_daily_card"):
-        mock_settings.data_dir = tmp_path
+    with MagicMock() as mock_storage:
         card = agent.run(
             user_text="Did some guitar today.",
             profile=sample_profile,
             checkins=[sample_checkin],
             client=stub_client,
-            now=datetime(2026, 4, 10),  # Friday — but < 3 checkins this week → DailyCard
+            now=datetime(2026, 4, 10),
         )
 
     assert isinstance(card, DailyCard)
     assert len(card.actions) == 2
-    assert card.actions[0].domain == Domain.GUITAR
+    assert card.actions[0].domain == "guitar"
     assert "streak" in card.motivation_note

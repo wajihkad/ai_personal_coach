@@ -10,7 +10,7 @@ import click
 
 from coach import agent, storage
 from coach.config import settings
-from coach.models import CheckIn, Status
+from coach.models import CheckIn, DomainProfile, Level, Status
 
 logger = logging.getLogger(__name__)
 
@@ -145,26 +145,80 @@ def week() -> None:
     _render_weekly_card(card)
 
 
-@cli.command()
-def profile() -> None:
-    """Display the current ProfileCard."""
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def profile(ctx: click.Context) -> None:
+    """Display and manage your profile. Run without a subcommand to show it."""
+    if ctx.invoked_subcommand is None:
+        p = storage.load_profile()
+        if p is None:
+            click.echo("No profile found. Create data/profile.json to get started.")
+            return
+        click.echo(f"\n=== Profile: {p.user_name} ===")
+        click.echo(f"Available days: {', '.join(p.available_days)}")
+        click.echo(f"Preferred session: {p.preferred_session_length}min")
+        click.echo(f"Learning style: {p.learning_style}")
+        click.echo("\nDomains:")
+        for dp in p.domains:
+            click.echo(
+                f"  {dp.domain.upper()} | {dp.level.value} | Goal: {dp.goal} "
+                f"| {dp.hours_per_week}h/week"
+            )
+            if dp.notes:
+                click.echo(f"    Notes: {dp.notes}")
+        click.echo(f"\nLast updated: {p.last_updated.strftime('%Y-%m-%d %H:%M')}\n")
+
+
+@profile.command("add-domain")
+def profile_add_domain() -> None:
+    """Add a new learning domain to your profile."""
     p = storage.load_profile()
     if p is None:
-        click.echo("No profile found. Create data/profile.json to get started.")
+        click.echo("No profile found. Create data/profile.json first.")
         return
-    click.echo(f"\n=== Profile: {p.user_name} ===")
-    click.echo(f"Available days: {', '.join(p.available_days)}")
-    click.echo(f"Preferred session: {p.preferred_session_length}min")
-    click.echo(f"Learning style: {p.learning_style}")
-    click.echo("\nDomains:")
-    for dp in p.domains:
-        click.echo(
-            f"  {dp.domain.value.upper()} | {dp.level.value} | Goal: {dp.goal} "
-            f"| {dp.hours_per_week}h/week"
-        )
-        if dp.notes:
-            click.echo(f"    Notes: {dp.notes}")
-    click.echo(f"\nLast updated: {p.last_updated.strftime('%Y-%m-%d %H:%M')}\n")
+
+    name = click.prompt("Domain name (e.g. guitar, running, japanese)").strip().lower()
+    if any(dp.domain == name for dp in p.domains):
+        click.echo(f"Domain '{name}' already exists in your profile.")
+        return
+
+    level_choice = click.prompt(
+        "Level", type=click.Choice(["beginner", "intermediate", "advanced"]), default="beginner"
+    )
+    goal = click.prompt("Goal (what do you want to achieve?)")
+    hours = click.prompt("Hours per week", type=float, default=2.0)
+    notes = click.prompt("Notes (optional, press Enter to skip)", default="")
+
+    p.domains.append(DomainProfile(
+        domain=name,
+        level=Level(level_choice),
+        goal=goal,
+        hours_per_week=hours,
+        notes=notes,
+    ))
+    storage.save_profile(p)
+    click.echo(f"\nDomain '{name}' added.")
+
+
+@profile.command("remove-domain")
+@click.argument("name")
+def profile_remove_domain(name: str) -> None:
+    """Remove a learning domain from your profile."""
+    p = storage.load_profile()
+    if p is None:
+        click.echo("No profile found.")
+        return
+
+    name = name.strip().lower()
+    before = len(p.domains)
+    p.domains = [dp for dp in p.domains if dp.domain != name]
+
+    if len(p.domains) == before:
+        click.echo(f"Domain '{name}' not found in your profile.")
+        return
+
+    storage.save_profile(p)
+    click.echo(f"Domain '{name}' removed.")
 
 
 @cli.command()
@@ -179,5 +233,5 @@ def history(days: int) -> None:
         click.echo(f"\n--- {ci.date.strftime('%Y-%m-%d')} — energy {ci.energy_level}/5 ---")
         click.echo(ci.free_text[:300] + ("…" if len(ci.free_text) > 300 else ""))
         for a in ci.completed_actions:
-            click.echo(f"  [{a.status.value}] {a.domain.value}: {a.description}")
+            click.echo(f"  [{a.status.value}] {a.domain}: {a.description}")
     click.echo()

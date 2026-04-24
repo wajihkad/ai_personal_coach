@@ -24,13 +24,17 @@ class _DummyChat:
 class _DummyCompletions:
     def create(self, *, tools: list, tool_choice: dict, messages: list, **kwargs) -> object:
         tool_name = tool_choice["function"]["name"]
+        # Extract the domain list from the tool schema the agent passed in
+        domain_values = tools[0]["function"]["parameters"]["properties"].get(
+            "actions", {}
+        ).get("items", {}).get("properties", {}).get("domain", {}).get("enum", ["unknown"])
 
         if tool_name == "daily_card":
-            tool_input = _dummy_daily_input()
+            tool_input = _dummy_daily_input(domain_values)
         elif tool_name == "weekly_card":
-            tool_input = _dummy_weekly_input()
+            tool_input = _dummy_weekly_input(domain_values)
         else:
-            tool_input = _dummy_milestone_input()
+            tool_input = _dummy_milestone_input(domain_values)
 
         # Mirror the OpenAI response shape: choices[0].message.tool_calls[0].function
         function = SimpleNamespace(name=tool_name, arguments=json.dumps(tool_input))
@@ -44,25 +48,12 @@ class _DummyCompletions:
 # Fake outputs per card type
 # ---------------------------------------------------------------------------
 
-_GUITAR_ACTIONS = [
-    ("Practice C major scale slowly with a metronome", 20),
-    ("Work on chord transition: G → D → Em", 25),
-    ("Play through your current song from start to finish", 30),
-    ("Focus on fingerpicking pattern for verse section", 20),
-]
-
-_CHESS_ACTIONS = [
-    ("Solve 5 tactical puzzles on Lichess", 20),
-    ("Review the last game you lost — find your mistake", 15),
-    ("Practice endgame: king and pawn vs king", 20),
-    ("Study one opening line (e4 e5 Nf3 Nc6)", 25),
-]
-
-_CODING_ACTIONS = [
-    ("Write the storage module and test it with a sample file", 30),
-    ("Implement the agent loop step by step", 45),
-    ("Read the Anthropic tool-use docs and run the example", 20),
-    ("Refactor yesterday's code — pick one thing to simplify", 25),
+# Generic action templates — work for any domain name.
+_GENERIC_ACTIONS = [
+    ("Work on a focused practice session", 20),
+    ("Review what you learned last time and build on it", 25),
+    ("Pick one specific weak point and drill it", 30),
+    ("Do a short, high-quality session — consistency matters", 20),
 ]
 
 _MOTIVATIONS = [
@@ -73,42 +64,33 @@ _MOTIVATIONS = [
 ]
 
 
-def _dummy_daily_input() -> dict:
-    actions = [
-        {"domain": "guitar", "description": random.choice(_GUITAR_ACTIONS)[0],
-         "duration_minutes": random.choice(_GUITAR_ACTIONS)[1]},
-        {"domain": "chess", "description": random.choice(_CHESS_ACTIONS)[0],
-         "duration_minutes": random.choice(_CHESS_ACTIONS)[1]},
-    ]
+def _dummy_action_for(domain: str) -> dict:
+    description, duration = random.choice(_GENERIC_ACTIONS)
+    return {"domain": domain, "description": description, "duration_minutes": duration}
+
+
+def _dummy_daily_input(domain_values: list[str]) -> dict:
+    # Pick up to 2 domains from the user's actual domain list
+    chosen = random.sample(domain_values, min(2, len(domain_values)))
     return {
-        "actions": actions,
+        "actions": [_dummy_action_for(d) for d in chosen],
         "motivation_note": f"[DUMMY] {random.choice(_MOTIVATIONS)}",
     }
 
 
-def _dummy_weekly_input() -> dict:
+def _dummy_weekly_input(domain_values: list[str]) -> dict:
     return {
-        "domain_summaries": {
-            "guitar": "Solid week — you completed 3 out of 4 planned sessions.",
-            "chess": "Lighter week on chess. Two puzzle sessions done.",
-            "coding": "Good progress on the project setup.",
-        },
-        "completion_rate": {
-            "guitar": 0.75,
-            "chess": 0.5,
-            "coding": 0.8,
-        },
-        "highlight": "[DUMMY] You finished a full run-through of your song for the first time!",
-        "next_week_focus": [
-            {"domain": "chess", "description": "Catch up on chess — aim for 3 puzzle sessions", "duration_minutes": 20},
-            {"domain": "guitar", "description": "Start learning the bridge section", "duration_minutes": 25},
-        ],
+        "domain_summaries": {d: f"Decent week on {d} — keep the habit going." for d in domain_values},
+        "completion_rate": {d: round(random.uniform(0.4, 1.0), 2) for d in domain_values},
+        "highlight": "[DUMMY] You stayed consistent across all your domains this week!",
+        "next_week_focus": [_dummy_action_for(d) for d in domain_values[:2]],
     }
 
 
-def _dummy_milestone_input() -> dict:
+def _dummy_milestone_input(domain_values: list[str]) -> dict:
+    domain = domain_values[0] if domain_values else "unknown"
     return {
-        "domain": "guitar",
-        "achievement": "[DUMMY] Completed 5 consecutive guitar sessions!",
-        "next_challenge": "Learn a new chord progression and apply it to a song you like.",
+        "domain": domain,
+        "achievement": f"[DUMMY] Completed 5 consecutive {domain} sessions!",
+        "next_challenge": f"Push to the next level in {domain} — pick a harder challenge.",
     }

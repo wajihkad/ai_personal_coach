@@ -3,10 +3,7 @@ from __future__ import annotations
 # All system prompts and LLM tool schemas live here.
 # No f-string prompts in other modules — build them here and import.
 
-from coach.models import CheckIn, Domain, ProfileCard
-
-# Derived from the Domain enum — add a new domain there and it propagates here automatically.
-_DOMAIN_VALUES = [d.value for d in Domain]
+from coach.models import CheckIn, ProfileCard
 
 
 SYSTEM_PROMPT = """\
@@ -35,7 +32,7 @@ def build_user_message(profile: ProfileCard, checkins: list[CheckIn], user_text:
     ]
     for dp in profile.domains:
         lines.append(
-            f"- {dp.domain.value} | Level: {dp.level.value} | "
+            f"- {dp.domain} | Level: {dp.level.value} | "
             f"Goal: {dp.goal} | {dp.hours_per_week}h/week"
             + (f" | Notes: {dp.notes}" if dp.notes else "")
         )
@@ -47,7 +44,7 @@ def build_user_message(profile: ProfileCard, checkins: list[CheckIn], user_text:
             lines.append(ci.free_text)
             for a in ci.completed_actions:
                 lines.append(
-                    f"  - [{a.status.value}] {a.domain.value}: {a.description} "
+                    f"  - [{a.status.value}] {a.domain}: {a.description} "
                     f"({a.duration_minutes}min)"
                     + (f" → {a.feedback}" if a.feedback else "")
                 )
@@ -57,101 +54,102 @@ def build_user_message(profile: ProfileCard, checkins: list[CheckIn], user_text:
 
 
 # ---------------------------------------------------------------------------
-# Tool schemas — one per card type
+# Tool schema builders — called at runtime with the user's domain list
 # ---------------------------------------------------------------------------
 
-DAILY_CARD_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "daily_card",
-        "description": "Produce a DailyCard with 2–3 prioritised actions and a personalised motivation note.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "actions": {
-                    "type": "array",
-                    "minItems": 2,
-                    "maxItems": 3,
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "domain": {"type": "string", "enum": _DOMAIN_VALUES},
-                            "description": {"type": "string"},
-                            "duration_minutes": {"type": "integer", "minimum": 5},
-                        },
-                        "required": ["domain", "description", "duration_minutes"],
+def _action_item(domain_values: list[str]) -> dict:
+    return {
+        "type": "object",
+        "properties": {
+            "domain": {"type": "string", "enum": domain_values},
+            "description": {"type": "string"},
+            "duration_minutes": {"type": "integer", "minimum": 5},
+        },
+        "required": ["domain", "description", "duration_minutes"],
+    }
+
+
+def build_daily_card_tool(domain_values: list[str]) -> dict:
+    return {
+        "type": "function",
+        "function": {
+            "name": "daily_card",
+            "description": "Produce a DailyCard with 2–3 prioritised actions and a personalised motivation note.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "actions": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 3,
+                        "items": _action_item(domain_values),
+                    },
+                    "motivation_note": {
+                        "type": "string",
+                        "description": "A short, specific motivational note referencing the user's recent history.",
                     },
                 },
-                "motivation_note": {
-                    "type": "string",
-                    "description": "A short, specific motivational note referencing the user's recent history.",
-                },
+                "required": ["actions", "motivation_note"],
             },
-            "required": ["actions", "motivation_note"],
         },
-    },
-}
+    }
 
-WEEKLY_CARD_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "weekly_card",
-        "description": "Produce a WeeklyCard summarising the week and setting focus for next week.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "domain_summaries": {
-                    "type": "object",
-                    "description": "Narrative summary per domain (domain value as key).",
-                    "additionalProperties": {"type": "string"},
-                },
-                "completion_rate": {
-                    "type": "object",
-                    "description": "Completion rate 0.0–1.0 per domain (domain value as key).",
-                    "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1},
-                },
-                "highlight": {
-                    "type": "string",
-                    "description": "The single most notable positive event of the week.",
-                },
-                "next_week_focus": {
-                    "type": "array",
-                    "maxItems": 3,
-                    "items": {
+
+def build_weekly_card_tool(domain_values: list[str]) -> dict:
+    return {
+        "type": "function",
+        "function": {
+            "name": "weekly_card",
+            "description": "Produce a WeeklyCard summarising the week and setting focus for next week.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain_summaries": {
                         "type": "object",
-                        "properties": {
-                            "domain": {"type": "string", "enum": _DOMAIN_VALUES},
-                            "description": {"type": "string"},
-                            "duration_minutes": {"type": "integer", "minimum": 5},
-                        },
-                        "required": ["domain", "description", "duration_minutes"],
+                        "description": "Narrative summary per domain (domain name as key).",
+                        "additionalProperties": {"type": "string"},
+                    },
+                    "completion_rate": {
+                        "type": "object",
+                        "description": "Completion rate 0.0–1.0 per domain (domain name as key).",
+                        "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1},
+                    },
+                    "highlight": {
+                        "type": "string",
+                        "description": "The single most notable positive event of the week.",
+                    },
+                    "next_week_focus": {
+                        "type": "array",
+                        "maxItems": 3,
+                        "items": _action_item(domain_values),
                     },
                 },
+                "required": ["domain_summaries", "completion_rate", "highlight", "next_week_focus"],
             },
-            "required": ["domain_summaries", "completion_rate", "highlight", "next_week_focus"],
         },
-    },
-}
+    }
 
-MILESTONE_CARD_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "milestone_card",
-        "description": "Produce a MilestoneCard celebrating a user achievement and setting the next challenge.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "domain": {"type": "string", "enum": _DOMAIN_VALUES},
-                "achievement": {
-                    "type": "string",
-                    "description": "Concrete description of what the user achieved.",
+
+def build_milestone_card_tool(domain_values: list[str]) -> dict:
+    return {
+        "type": "function",
+        "function": {
+            "name": "milestone_card",
+            "description": "Produce a MilestoneCard celebrating a user achievement and setting the next challenge.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "enum": domain_values},
+                    "achievement": {
+                        "type": "string",
+                        "description": "Concrete description of what the user achieved.",
+                    },
+                    "next_challenge": {
+                        "type": "string",
+                        "description": "Specific, domain-appropriate next challenge to aim for.",
+                    },
                 },
-                "next_challenge": {
-                    "type": "string",
-                    "description": "Specific, domain-appropriate next challenge to aim for.",
-                },
+                "required": ["domain", "achievement", "next_challenge"],
             },
-            "required": ["domain", "achievement", "next_challenge"],
         },
-    },
-}
+    }

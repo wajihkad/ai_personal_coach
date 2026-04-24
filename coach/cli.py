@@ -35,7 +35,7 @@ def _render_daily_card(card) -> None:  # type: ignore[type-arg]
             action.status.value, "○"
         )
         click.echo(
-            f"  {i}. [{status_icon}] [{action.domain.value.upper()}] "
+            f"  {i}. [{status_icon}] [{action.domain.upper()}] "
             f"{action.description} ({action.duration_minutes}min)"
         )
         if action.feedback:
@@ -52,10 +52,10 @@ def _render_weekly_card(card) -> None:  # type: ignore[type-arg]
     click.echo("Domain summaries:")
     for domain, summary in card.domain_summaries.items():
         rate = card.completion_rate.get(domain, 0)
-        click.echo(f"  {domain.value.upper()} ({rate:.0%}): {summary}")
+        click.echo(f"  {domain.upper()} ({rate:.0%}): {summary}")
     click.echo("\nNext week focus:")
     for action in card.next_week_focus:
-        click.echo(f"  · [{action.domain.value.upper()}] {action.description} ({action.duration_minutes}min)")
+        click.echo(f"  · [{action.domain.upper()}] {action.description} ({action.duration_minutes}min)")
     click.echo()
 
 
@@ -114,7 +114,7 @@ def checkin() -> None:
         _render_weekly_card(card)
     else:
         click.echo(f"\n=== Milestone! ===")
-        click.echo(f"Domain: {card.domain.value.upper()}")
+        click.echo(f"Domain: {card.domain.upper()}")
         click.echo(f"Achievement: {card.achievement}")
         click.echo(f"Next challenge: {card.next_challenge}\n")
 
